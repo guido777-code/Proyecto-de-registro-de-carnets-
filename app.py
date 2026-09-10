@@ -29,6 +29,69 @@ CREDENCIALES_FILE = "credenciales_admin.json"
 ASISTENCIA_FILE = "asistencias.csv"
 COLUMNAS_ASISTENCIA = ["codigo", "nombres", "apellidos", "grado", "fecha", "hora"]
 
+# Orden lógico de los grados (debe coincidir con las opciones del selectbox de registro,
+# sin las líneas de separador "── ... ──"). Se usa para agrupar y ordenar por grado.
+ORDEN_GRADOS = [
+    "Prekínder",
+    "Kínder",
+    "Preprimaria",
+    "Primero Primaria",
+    "Segundo Primaria",
+    "Tercero Primaria",
+    "Cuarto Primaria",
+    "Quinto Primaria",
+    "Sexto Primaria",
+    "Primero Básico – Sección A",
+    "Primero Básico – Sección B",
+    "Segundo Básico – Sección A",
+    "Segundo Básico – Sección B",
+    "Tercero Básico – Sección A",
+    "Tercero Básico – Sección B",
+    "Cuarto Bachillerato",
+    "Quinto Bachillerato",
+    "Cuarto Magisterio",
+    "Quinto Magisterio",
+    "Sexto Magisterio",
+]
+
+MESES_ES = {
+    1: "Enero", 2: "Febrero", 3: "Marzo", 4: "Abril", 5: "Mayo", 6: "Junio",
+    7: "Julio", 8: "Agosto", 9: "Septiembre", 10: "Octubre", 11: "Noviembre", 12: "Diciembre",
+}
+
+# Niveles educativos y los grados que contiene cada uno. Se usa para el registro
+# en dos pasos (nivel -> grado), de forma que los encabezados de nivel nunca
+# aparezcan como una opción de grado seleccionable por error.
+NIVELES_GRADOS = {
+    "Preprimaria": ["Prekínder", "Kínder", "Preprimaria"],
+    "Primaria": [
+        "Primero Primaria", "Segundo Primaria", "Tercero Primaria",
+        "Cuarto Primaria", "Quinto Primaria", "Sexto Primaria",
+    ],
+    "Básico": [
+        "Primero Básico – Sección A", "Primero Básico – Sección B",
+        "Segundo Básico – Sección A", "Segundo Básico – Sección B",
+        "Tercero Básico – Sección A", "Tercero Básico – Sección B",
+    ],
+    "Diversificado – Bachillerato": ["Cuarto Bachillerato", "Quinto Bachillerato"],
+    "Diversificado – Magisterio": ["Cuarto Magisterio", "Quinto Magisterio", "Sexto Magisterio"],
+}
+
+
+def normalizar_grado(grado):
+    """Devuelve el grado tal cual, o 'Sin grado' si viene vacío/None."""
+    if isinstance(grado, str) and grado.strip():
+        return grado.strip()
+    return "Sin grado"
+
+
+def ordenar_grados_presentes(grados_presentes):
+    """Ordena un conjunto de grados según ORDEN_GRADOS; cualquier grado que no
+    esté en la lista (por ejemplo 'Sin grado') se agrega al final, alfabéticamente."""
+    ordenados = [g for g in ORDEN_GRADOS if g in grados_presentes]
+    extras = sorted(g for g in grados_presentes if g not in ORDEN_GRADOS)
+    return ordenados + extras
+
 
 def hash_password(password):
     return hashlib.sha256(password.encode()).hexdigest()
@@ -78,6 +141,9 @@ if "pagina" not in st.session_state:
     st.session_state.username = None
     st.session_state.ultimo_codigo_registrado = None
     st.session_state.codigo_escaneado = None
+
+if "modo_oscuro" not in st.session_state:
+    st.session_state.modo_oscuro = False
 
 # ================== LOGO Y FONDO ==================
 LOGO_PATH = None
@@ -173,6 +239,12 @@ def marcar_asistencia(registro):
 
 
 def generar_excel_bytes(df):
+    """Genera el Excel en memoria. Si falta la librería 'openpyxl' instalada,
+    retorna None en lugar de tronar la app."""
+    try:
+        import openpyxl  # noqa: F401
+    except ImportError:
+        return None
     buffer = BytesIO()
     with pd.ExcelWriter(buffer, engine="openpyxl") as writer:
         df.to_excel(writer, index=False, sheet_name="Asistencia")
@@ -317,8 +389,93 @@ def renderizar_carnet(datos):
     components.html(html_content, height=440)
 
 
+def mostrar_tabla_con_carnet(df_tabla, key_tabla):
+    """Muestra un dataframe donde se puede tocar una fila (debe tener columna 'codigo')
+    para ver el carnet de ese estudiante justo debajo de la tabla."""
+    df_tabla = df_tabla.reset_index(drop=True)
+
+    evento_tabla = st.dataframe(
+        df_tabla,
+        use_container_width=True,
+        hide_index=True,
+        on_select="rerun",
+        selection_mode="single-row",
+        key=key_tabla,
+    )
+
+    filas_seleccionadas = []
+    if evento_tabla is not None and getattr(evento_tabla, "selection", None) is not None:
+        seleccion = evento_tabla.selection
+        filas_seleccionadas = seleccion.get("rows", []) if isinstance(seleccion, dict) else seleccion.rows
+
+    if filas_seleccionadas and "codigo" in df_tabla.columns:
+        codigo_tocado = df_tabla.iloc[filas_seleccionadas[0]]["codigo"]
+        datos_tocados = cargar_registro(codigo_tocado)
+        if datos_tocados:
+            st.write("")
+            cver1, cver2, cver3 = st.columns([1, 1, 1])
+            with cver2:
+                renderizar_carnet(datos_tocados)
+
+
+# ================== INTERRUPTOR DE MODO OSCURO ==================
+with st.sidebar:
+    st.session_state.modo_oscuro = st.toggle(
+        "🌙 Modo oscuro",
+        value=st.session_state.modo_oscuro,
+        key="toggle_modo_oscuro",
+        help="Cambiar entre modo claro y modo oscuro",
+    )
+    st.markdown("<hr style='margin: 10px 0 18px 0;'>", unsafe_allow_html=True)
+
+MODO_OSCURO = st.session_state.modo_oscuro
+
+# Paleta de colores según el modo
+if MODO_OSCURO:
+    PALETA = {
+        "texto": "#e5e9f0",
+        "texto_secundario": "#94a3b8",
+        "fondo_gradiente": "linear-gradient(135deg, #0b1120 0%, #111827 50%, #1e2a45 100%)",
+        "input_bg": "#1e293b",
+        "input_borde": "#475569",
+        "placeholder": "#64748b",
+        "icono": "#94a3b8",
+        "dropzone_bg": "#1e293b",
+        "dropzone_boton_bg": "#334155",
+        "primario": "#3b82f6",
+        "primario_texto": "#ffffff",
+        "secundario_bg": "#1e293b",
+        "card_bg": "rgba(30, 41, 59, 0.85)",
+        "card_borde": "#334155",
+        "alerta_bg": "#1e293b",
+        "alerta_borde": "#475569",
+        "hr_color": "#334155",
+        "sidebar_bg": "#111827",
+    }
+else:
+    PALETA = {
+        "texto": "#0c2340",
+        "texto_secundario": "#475569",
+        "fondo_gradiente": "linear-gradient(135deg, #e0f2fe 0%, #bae6fd 50%, #0284c7 100%)",
+        "input_bg": "#ffffff",
+        "input_borde": "#94a3b8",
+        "placeholder": "#94a3b8",
+        "icono": "#64748b",
+        "dropzone_bg": "#ffffff",
+        "dropzone_boton_bg": "#e2e8f0",
+        "primario": "#0066ff",
+        "primario_texto": "#ffffff",
+        "secundario_bg": "#ffffff",
+        "card_bg": "rgba(255, 255, 255, 0.9)",
+        "card_borde": "#ffffff",
+        "alerta_bg": "#ffffff",
+        "alerta_borde": "#cbd5e1",
+        "hr_color": "#cbd5e1",
+        "sidebar_bg": "#ffffff",
+    }
+
 bg_css = ""
-if FONDO_PATH:
+if FONDO_PATH and not MODO_OSCURO:
     bin_str = get_base64(FONDO_PATH)
     ext_type = FONDO_PATH.split('.')[-1]
     bg_css = f"""
@@ -330,10 +487,10 @@ if FONDO_PATH:
         }}
     """
 else:
-    bg_css = """
-        [data-testid="stAppViewContainer"] {
-            background: linear-gradient(135deg, #e0f2fe 0%, #bae6fd 50%, #0284c7 100%);
-        }
+    bg_css = f"""
+        [data-testid="stAppViewContainer"] {{
+            background: {PALETA["fondo_gradiente"]};
+        }}
     """
 
 st.markdown(
@@ -346,19 +503,19 @@ st.markdown(
     }}
 
     .block-container {{
-        padding-top: 2rem !important;
+        padding-top: 1rem !important;
         padding-bottom: 2rem !important;
         max-width: 1200px !important;
     }}
 
     h1, h2, h3, h4, label, p, span:not([data-testid="stIconMaterial"]) {{
-        color: #0c2340 !important;
+        color: {PALETA["texto"]} !important;
         font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif !important;
     }}
 
     [data-testid="stIconMaterial"] {{
         font-family: 'Material Symbols Rounded' !important;
-        color: #64748b !important;
+        color: {PALETA["icono"]} !important;
     }}
 
     div[data-baseweb="input"],
@@ -368,31 +525,51 @@ st.markdown(
     input[type="password"],
     input[type="date"],
     div[data-baseweb="datepicker"] div {{
-        background-color: #ffffff !important;
-        color: #0c2340 !important;
-        border-color: #94a3b8 !important;
+        background-color: {PALETA["input_bg"]} !important;
+        color: {PALETA["texto"]} !important;
+        border-color: {PALETA["input_borde"]} !important;
+    }}
+
+    /* Los controles "cerrados" de fecha_nacimiento y de los selectbox
+       (nivel/grado, filtros, etc.) a veces traen su propio fondo blanco
+       pintado por un div más interno, con más especificidad que la regla
+       genérica de arriba. Se repite la regla pero anclada al contenedor
+       del widget (stDateInput / stSelectbox / stTextInput) para ganar esa
+       pelea de especificidad sin importar cuántos divs haya por dentro. */
+    [data-testid="stDateInput"] div,
+    [data-testid="stDateInput"] input,
+    [data-testid="stSelectbox"] div[data-baseweb],
+    [data-testid="stTextInput"] div,
+    [data-testid="stTextInput"] input {{
+        background-color: {PALETA["input_bg"]} !important;
+        color: {PALETA["texto"]} !important;
+        border-color: {PALETA["input_borde"]} !important;
+    }}
+    [data-testid="stDateInput"] svg,
+    [data-testid="stSelectbox"] svg {{
+        fill: {PALETA["texto"]} !important;
     }}
 
     input::placeholder {{
-        color: #94a3b8 !important;
+        color: {PALETA["placeholder"]} !important;
     }}
 
     div[data-baseweb="select"] svg,
     div[data-baseweb="datepicker"] svg {{
-        fill: #0c2340 !important;
+        fill: {PALETA["texto"]} !important;
     }}
 
     [data-testid="stFileUploaderDropzone"] {{
-        background-color: #ffffff !important;
-        border: 1.5px dashed #94a3b8 !important;
+        background-color: {PALETA["dropzone_bg"]} !important;
+        border: 1.5px dashed {PALETA["input_borde"]} !important;
         border-radius: 10px !important;
     }}
 
     [data-testid="stFileUploaderDropzone"] button {{
-        background-color: #e2e8f0 !important;
-        border: 1px solid #cbd5e1 !important;
+        background-color: {PALETA["dropzone_boton_bg"]} !important;
+        border: 1px solid {PALETA["input_borde"]} !important;
         border-radius: 6px !important;
-        color: #0c2340 !important;
+        color: {PALETA["texto"]} !important;
         box-shadow: none !important;
     }}
 
@@ -402,63 +579,190 @@ st.markdown(
     }}
 
     div.stButton > button[kind="primary"] {{
-        background-color: #0066ff !important;
+        background-color: {PALETA["primario"]} !important;
         border: none !important;
         border-radius: 8px !important;
     }}
     div.stButton > button[kind="primary"] p,
     div.stButton > button[kind="primary"] span {{
-        color: #ffffff !important;
+        color: {PALETA["primario_texto"]} !important;
         font-weight: 700 !important;
         font-size: 16px !important;
     }}
 
     div.stButton > button:not([kind="primary"]) {{
-        background-color: #ffffff !important;
-        border: 2px solid #0066ff !important;
+        background-color: {PALETA["secundario_bg"]} !important;
+        border: 2px solid {PALETA["primario"]} !important;
         border-radius: 8px !important;
     }}
     div.stButton > button:not([kind="primary"]) p,
     div.stButton > button:not([kind="primary"]) span {{
-        color: #0066ff !important;
+        color: {PALETA["primario"]} !important;
         font-weight: 700 !important;
         font-size: 16px !important;
     }}
 
     .security-card {{
-        background-color: rgba(255, 255, 255, 0.85);
+        background-color: {PALETA["card_bg"]};
         backdrop-filter: blur(8px);
-        border: 1px solid #ffffff;
+        border: 1px solid {PALETA["card_borde"]};
         border-radius: 16px;
         padding: 16px;
         margin-top: 25px;
         display: flex;
         align-items: center;
         gap: 15px;
-        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
     }}
 
     [data-testid="stAlert"] {{
-        background-color: #ffffff !important;
+        background-color: {PALETA["alerta_bg"]} !important;
         border-radius: 10px !important;
         padding: 14px 18px !important;
         box-shadow: 0 4px 14px rgba(0, 0, 0, 0.15) !important;
-        border: 1px solid #cbd5e1 !important;
+        border: 1px solid {PALETA["alerta_borde"]} !important;
     }}
     [data-testid="stAlert"] p {{
-        color: #0c2340 !important;
+        color: {PALETA["texto"]} !important;
         font-weight: 600 !important;
         font-size: 14.5px !important;
     }}
 
     .login-card {{
-        background-color: rgba(255, 255, 255, 0.9);
+        background-color: {PALETA["card_bg"]};
         backdrop-filter: blur(8px);
-        border: 1px solid #ffffff;
+        border: 1px solid {PALETA["card_borde"]};
         border-radius: 20px;
         padding: 40px;
-        box-shadow: 0 8px 24px rgba(0, 0, 0, 0.08);
-        margin-top: 30px;
+        box-shadow: 0 8px 24px rgba(0, 0, 0, 0.2);
+        margin-top: 10px;
+    }}
+
+    [data-testid="stExpander"] {{
+        background-color: {PALETA["card_bg"]} !important;
+        border: 1px solid {PALETA["card_borde"]} !important;
+        border-radius: 12px !important;
+    }}
+
+    [data-testid="stDataFrame"] {{
+        border-radius: 10px !important;
+        overflow: hidden !important;
+    }}
+
+    hr {{
+        border-top: 1px solid {PALETA["hr_color"]} !important;
+    }}
+
+    /* ============ CORRECCIONES DE CONTRASTE (MODO OSCURO) ============ */
+
+    /* Los menús desplegables (selectbox) y el calendario (date_input) se
+       dibujan en una capa flotante aparte del resto de la página ("popover").
+       Antes heredaban el color de texto claro del modo oscuro pero seguían
+       teniendo fondo blanco, por eso el texto se veía invisible. Aquí se
+       fuerza fondo blanco + texto oscuro SIEMPRE en esa capa, sin importar
+       si el modo oscuro está activo o no. */
+    div[data-baseweb="popover"] ul[role="listbox"],
+    div[data-baseweb="popover"] div[data-baseweb="calendar"],
+    div[data-baseweb="menu"] {{
+        background-color: #ffffff !important;
+    }}
+    div[data-baseweb="popover"] ul[role="listbox"] *,
+    div[data-baseweb="popover"] div[data-baseweb="calendar"] *,
+    div[data-baseweb="menu"] * {{
+        color: #0c2340 !important;
+    }}
+    div[data-baseweb="popover"] li[aria-selected="true"],
+    div[data-baseweb="popover"] div[aria-selected="true"] {{
+        background-color: #e0f2fe !important;
+    }}
+
+    /* "Usuario" y "Rol" en la barra lateral: se sube la especificidad del
+       selector (con el data-testid del sidebar) para ganarle a los estilos
+       propios de Streamlit que antes dejaban ese texto casi invisible. */
+    /* El fondo de la barra lateral no cambiaba con el modo oscuro (se
+       quedaba con el gris claro por defecto de Streamlit), así que el
+       texto claro quedaba casi invisible sobre ese fondo claro. Ahora se
+       fuerza también el fondo de la barra lateral según el modo. */
+    [data-testid="stSidebar"],
+    [data-testid="stSidebarContent"],
+    [data-testid="stSidebarUserContent"] {{
+        background-color: {PALETA["sidebar_bg"]} !important;
+    }}
+    [data-testid="stSidebar"] p,
+    [data-testid="stSidebar"] span,
+    [data-testid="stSidebar"] label,
+    [data-testid="stSidebar"] div {{
+        color: {PALETA["texto"]} !important;
+    }}
+
+    /* Botones de descarga (CSV / Excel): usan un componente distinto al de
+       st.button ("stDownloadButton"), así que antes no recibían ningún
+       estilo y se quedaban con fondo y texto blancos. */
+    [data-testid="stDownloadButton"] button {{
+        background-color: {PALETA["secundario_bg"]} !important;
+        border: 2px solid {PALETA["primario"]} !important;
+        border-radius: 8px !important;
+    }}
+    [data-testid="stDownloadButton"] button p,
+    [data-testid="stDownloadButton"] button span {{
+        color: {PALETA["primario"]} !important;
+        font-weight: 700 !important;
+    }}
+
+    /* Cámara de asistencia: el recuadro de permiso de cámara y el botón
+       "Take Photo" también quedaban fuera del estilo general. */
+    [data-testid="stCameraInput"] {{
+        background-color: {PALETA["dropzone_bg"]} !important;
+        border-radius: 10px !important;
+    }}
+    [data-testid="stCameraInput"] p,
+    [data-testid="stCameraInput"] span,
+    [data-testid="stCameraInput"] label {{
+        color: {PALETA["texto"]} !important;
+    }}
+    [data-testid="stCameraInput"] button {{
+        background-color: {PALETA["dropzone_boton_bg"]} !important;
+        color: {PALETA["texto"]} !important;
+        border: 1px solid {PALETA["input_borde"]} !important;
+    }}
+
+    /* Encabezados de los desplegables por grado / por mes (los "expanders"
+       de Carnets registrados e Historial mensual). */
+    /* El encabezado (summary) de cada expander pinta su propio fondo por
+       encima del que le pusimos al contenedor completo, por eso seguía
+       viéndose blanco. Se fuerza el fondo y el color de TODO lo que haya
+       dentro del encabezado, sin importar la etiqueta que use. */
+    [data-testid="stExpander"] summary,
+    [data-testid="stExpander"] details > summary {{
+        background-color: {PALETA["card_bg"]} !important;
+    }}
+    [data-testid="stExpander"] summary,
+    [data-testid="stExpander"] summary * {{
+        color: {PALETA["texto"]} !important;
+        font-weight: 600 !important;
+    }}
+
+    /* Pestañas del menú principal: se agranda el área táctil de cada
+       pestaña para que todo el bloque (ícono + texto) sea clicable, y no
+       solo una franja debajo del texto. */
+    [data-baseweb="tab-list"] {{
+        align-items: stretch !important;
+    }}
+    [data-baseweb="tab-list"] button[data-baseweb="tab"],
+    [data-baseweb="tab-list"] [role="tab"] {{
+        height: auto !important;
+        min-height: 48px !important;
+        display: flex !important;
+        align-items: center !important;
+        justify-content: center !important;
+        padding: 12px 16px !important;
+        line-height: normal !important;
+    }}
+    [data-baseweb="tab-list"] button[data-baseweb="tab"] *,
+    [data-baseweb="tab-list"] [role="tab"] * {{
+        line-height: normal !important;
+        vertical-align: middle !important;
+        margin: 0 !important;
     }}
     </style>
     """,
@@ -608,34 +912,24 @@ def pantalla_registro():
         with c5:
             carnet_actual = st.text_input("No. de carnet actual (si tiene)", placeholder="Ingrese su número de carnet (opcional)")
         with c6:
-            grado = st.selectbox("Grado actual *", [
-                "Seleccione su grado",
-                "── Preprimaria ──",
-                "Prekínder",
-                "Kínder",
-                "Preprimaria",
-                "── Primaria ──",
-                "Primero Primaria",
-                "Segundo Primaria",
-                "Tercero Primaria",
-                "Cuarto Primaria",
-                "Quinto Primaria",
-                "Sexto Primaria",
-                "── Básico ──",
-                "Primero Básico – Sección A",
-                "Primero Básico – Sección B",
-                "Segundo Básico – Sección A",
-                "Segundo Básico – Sección B",
-                "Tercero Básico – Sección A",
-                "Tercero Básico – Sección B",
-                "── Diversificado – Bachillerato ──",
-                "Cuarto Bachillerato",
-                "Quinto Bachillerato",
-                "── Diversificado – Magisterio ──",
-                "Cuarto Magisterio",
-                "Quinto Magisterio",
-                "Sexto Magisterio",
-            ])
+            nivel_seleccionado = st.selectbox(
+                "Nivel educativo *",
+                ["Seleccione el nivel"] + list(NIVELES_GRADOS.keys()),
+                key="select_nivel_registro",
+            )
+
+        grados_disponibles = NIVELES_GRADOS.get(nivel_seleccionado, [])
+        if grados_disponibles:
+            opciones_grado = ["Seleccione su grado"] + grados_disponibles
+        else:
+            opciones_grado = ["Seleccione primero el nivel educativo"]
+
+        grado = st.selectbox(
+            "Grado actual *",
+            opciones_grado,
+            disabled=not grados_disponibles,
+            key="select_grado_registro",
+        )
 
         foto_estudiante = st.file_uploader("Foto del estudiante *", type=["png", "jpg", "jpeg"])
         if foto_estudiante is not None:
@@ -652,8 +946,8 @@ def pantalla_registro():
                 # Validaciones de campos obligatorios
                 if not nombres or not apellidos:
                     st.error("Por favor ingrese al menos Nombres y Apellidos.")
-                elif grado == "Seleccione su grado" or grado.startswith("──"):
-                    st.error("Por favor seleccione un grado actual válido.")
+                elif nivel_seleccionado == "Seleccione el nivel" or grado in ("Seleccione su grado", "Seleccione primero el nivel educativo"):
+                    st.error("Por favor seleccione el nivel educativo y el grado actual.")
                 elif fecha_nac is None:
                     st.error("Por favor ingrese la fecha de nacimiento.")
                 elif foto_estudiante is None:
@@ -742,30 +1036,15 @@ def panel_datos():
     st.markdown(f"**{len(registros)} registro(s) encontrado(s)**")
 
     if registros:
-        df = pd.DataFrame(registros)
-        columnas_orden = [c for c in ["codigo", "nombres", "apellidos", "dpi", "fecha_nacimiento", "grado"] if c in df.columns]
-        df = df[columnas_orden]
+        columnas_orden = [c for c in ["codigo", "nombres", "apellidos", "dpi", "fecha_nacimiento", "grado"] if c in registros[0].keys()]
 
-        evento_seleccion = st.dataframe(
-            df,
-            use_container_width=True,
-            hide_index=True,
-            on_select="rerun",
-            selection_mode="single-row"
-        )
-
-        filas_seleccionadas = evento_seleccion.selection.get("rows", [])
-
-        if filas_seleccionadas:
-            indice = filas_seleccionadas[0]
-            codigo_seleccionado = df.iloc[indice]["codigo"]
-            datos_ver = cargar_registro(codigo_seleccionado)
-            if datos_ver:
-                st.write("")
-                st.markdown("##### Vista del carnet seleccionado")
-                cver1, cver2, cver3 = st.columns([1, 1, 1])
-                with cver2:
-                    renderizar_carnet(datos_ver)
+        grados_presentes = {normalizar_grado(r.get("grado")) for r in registros}
+        for grado_actual in ordenar_grados_presentes(grados_presentes):
+            registros_grado = [r for r in registros if normalizar_grado(r.get("grado")) == grado_actual]
+            with st.expander(f"🎓 {grado_actual} — {len(registros_grado)} estudiante(s)", expanded=True):
+                df_grupo = pd.DataFrame(registros_grado)[columnas_orden]
+                st.caption("👆 Toca el perfil de un estudiante en la tabla para ver su carnet.")
+                mostrar_tabla_con_carnet(df_grupo, key_tabla=f"tabla_grado_{grado_actual}")
 
         st.write("")
         st.markdown("##### Eliminar un registro")
@@ -867,8 +1146,14 @@ def panel_asistencia():
     if df_hoy.empty:
         st.info("Todavía no hay asistencias registradas hoy.")
     else:
-        st.dataframe(df_hoy, use_container_width=True, hide_index=True)
+        grados_presentes_hoy = {normalizar_grado(g) for g in df_hoy["grado"].tolist()}
+        for grado_actual in ordenar_grados_presentes(grados_presentes_hoy):
+            df_grupo_hoy = df_hoy[df_hoy["grado"].apply(normalizar_grado) == grado_actual]
+            with st.expander(f"🎓 {grado_actual} — {len(df_grupo_hoy)} estudiante(s)", expanded=True):
+                st.caption("👆 Toca el perfil de un estudiante en la tabla para ver su carnet.")
+                mostrar_tabla_con_carnet(df_grupo_hoy, key_tabla=f"tabla_asistencia_hoy_{grado_actual}")
 
+        st.write("")
         col_desc1, col_desc2 = st.columns(2)
         with col_desc1:
             st.download_button(
@@ -879,12 +1164,130 @@ def panel_asistencia():
                 use_container_width=True,
             )
         with col_desc2:
+            excel_bytes = generar_excel_bytes(df_hoy)
+            if excel_bytes is not None:
+                st.download_button(
+                    "⬇️ Descargar Excel",
+                    data=excel_bytes,
+                    file_name=f"asistencia_{fecha_hoy}.xlsx",
+                    mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                    use_container_width=True,
+                )
+            else:
+                st.button(
+                    "⬇️ Descargar Excel (falta instalar 'openpyxl')",
+                    disabled=True,
+                    use_container_width=True,
+                )
+
+
+# ================== PANEL: HISTORIAL MENSUAL DE ASISTENCIA ==================
+def panel_historial_asistencia():
+    st.markdown(
+        "<h3 style='font-size: 22px; font-weight: 800; color: #0c2340;'>🗓️ Historial de asistencia</h3>",
+        unsafe_allow_html=True
+    )
+    st.markdown(
+        "<p style='color:#334155;'>Consulta todas las asistencias registradas a lo largo del año, organizadas por mes.</p>",
+        unsafe_allow_html=True
+    )
+    st.markdown("<hr style='border: 0; border-top: 1px solid #cbd5e1;'>", unsafe_allow_html=True)
+
+    anio_actual = datetime.now().year
+    df = cargar_asistencias()
+
+    if df.empty:
+        st.info("Aún no hay asistencias registradas.")
+        return
+
+    df = df.copy()
+    df["fecha_dt"] = pd.to_datetime(df["fecha"], errors="coerce")
+    df_anio = df[df["fecha_dt"].dt.year == anio_actual].sort_values("fecha_dt")
+
+    if df_anio.empty:
+        st.info(f"No hay asistencias registradas en {anio_actual}.")
+        return
+
+    df_anio = df_anio.assign(mes_num=df_anio["fecha_dt"].dt.month)
+
+    st.markdown(f"##### Año {anio_actual} — {len(df_anio)} registro(s) de asistencia en total")
+
+    meses_presentes = sorted(df_anio["mes_num"].unique(), reverse=True)
+
+    for mes_num in meses_presentes:
+        df_mes = df_anio[df_anio["mes_num"] == mes_num].drop(columns=["fecha_dt", "mes_num"]).reset_index(drop=True)
+        nombre_mes = MESES_ES.get(mes_num, str(mes_num))
+        dias_con_registro = df_mes["fecha"].nunique()
+
+        with st.expander(f"📅 {nombre_mes} {anio_actual} — {len(df_mes)} registro(s) en {dias_con_registro} día(s)", expanded=False):
+            st.caption("👆 Toca el perfil de un estudiante en la tabla para ver su carnet.")
+            grados_presentes_mes = {normalizar_grado(g) for g in df_mes["grado"].tolist()}
+            for grado_actual in ordenar_grados_presentes(grados_presentes_mes):
+                df_grupo_mes = df_mes[df_mes["grado"].apply(normalizar_grado) == grado_actual]
+                st.markdown(f"**🎓 {grado_actual}** — {len(df_grupo_mes)} registro(s)")
+                mostrar_tabla_con_carnet(df_grupo_mes, key_tabla=f"tabla_historial_{mes_num}_{grado_actual}")
+
+            st.write("")
+            col_dm1, col_dm2 = st.columns(2)
+            with col_dm1:
+                st.download_button(
+                    f"⬇️ Descargar CSV de {nombre_mes}",
+                    data=df_mes.to_csv(index=False).encode("utf-8"),
+                    file_name=f"asistencia_{anio_actual}_{mes_num:02d}_{nombre_mes}.csv",
+                    mime="text/csv",
+                    use_container_width=True,
+                    key=f"csv_mes_{mes_num}",
+                )
+            with col_dm2:
+                excel_bytes_mes = generar_excel_bytes(df_mes)
+                if excel_bytes_mes is not None:
+                    st.download_button(
+                        f"⬇️ Descargar Excel de {nombre_mes}",
+                        data=excel_bytes_mes,
+                        file_name=f"asistencia_{anio_actual}_{mes_num:02d}_{nombre_mes}.xlsx",
+                        mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                        use_container_width=True,
+                        key=f"xlsx_mes_{mes_num}",
+                    )
+                else:
+                    st.button(
+                        "⬇️ Excel (falta instalar 'openpyxl')",
+                        disabled=True,
+                        use_container_width=True,
+                        key=f"xlsx_mes_disabled_{mes_num}",
+                    )
+
+    st.write("")
+    st.markdown("<hr style='border: 0; border-top: 1px solid #cbd5e1;'>", unsafe_allow_html=True)
+    st.markdown("##### Descargar historial completo del año")
+    df_anio_export = df_anio.drop(columns=["fecha_dt", "mes_num"])
+    col_da1, col_da2 = st.columns(2)
+    with col_da1:
+        st.download_button(
+            "⬇️ Descargar CSV del año completo",
+            data=df_anio_export.to_csv(index=False).encode("utf-8"),
+            file_name=f"asistencia_{anio_actual}_completo.csv",
+            mime="text/csv",
+            use_container_width=True,
+            key="csv_anio_completo",
+        )
+    with col_da2:
+        excel_bytes_anio = generar_excel_bytes(df_anio_export)
+        if excel_bytes_anio is not None:
             st.download_button(
-                "⬇️ Descargar Excel",
-                data=generar_excel_bytes(df_hoy),
-                file_name=f"asistencia_{fecha_hoy}.xlsx",
+                "⬇️ Descargar Excel del año completo",
+                data=excel_bytes_anio,
+                file_name=f"asistencia_{anio_actual}_completo.xlsx",
                 mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
                 use_container_width=True,
+                key="xlsx_anio_completo",
+            )
+        else:
+            st.button(
+                "⬇️ Excel del año (falta instalar 'openpyxl')",
+                disabled=True,
+                use_container_width=True,
+                key="xlsx_anio_disabled",
             )
 
 
@@ -949,8 +1352,8 @@ elif st.session_state.pagina == "app" and st.session_state.logged_in:
             st.session_state.ultimo_codigo_registrado = None
             st.rerun()
 
-    tab_registro, tab_datos, tab_asistencia, tab_cuenta = st.tabs(
-        ["📝 Registrar carnet", "📋 Carnets registrados", "📅 Asistencia", "⚙️ Mi cuenta"]
+    tab_registro, tab_datos, tab_asistencia, tab_historial, tab_cuenta = st.tabs(
+        ["📝 Registrar carnet", "📋 Carnets registrados", "📅 Asistencia", "🗓️ Historial mensual", "⚙️ Mi cuenta"]
     )
     with tab_registro:
         pantalla_registro()
@@ -958,6 +1361,8 @@ elif st.session_state.pagina == "app" and st.session_state.logged_in:
         panel_datos()
     with tab_asistencia:
         panel_asistencia()
+    with tab_historial:
+        panel_historial_asistencia()
     with tab_cuenta:
         panel_mi_cuenta()
 
