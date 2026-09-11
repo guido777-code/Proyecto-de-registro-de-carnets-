@@ -1,0 +1,5 @@
+{
+  "usuario": "colegio",
+  "password_hash": "pbkdf2$210000$01d7ac9eaff14a309a0cd5f2ee92bafa$fc4ce970bc6fcbe2e32ad46c7d804faec28546efb1bda2d7ad62f567543add6d",
+  "requiere_cambio_password": false
+}
