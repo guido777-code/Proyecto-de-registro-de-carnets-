@@ -1,0 +1,95 @@
+[
+  {
+    "id": "f8ce3b51a980",
+    "nombre": "Dereck Yahir Pop Pub",
+    "usuario": "dereck",
+    "password_hash": "pbkdf2$210000$99ab021bc9b2b91e6992568dbea876b5$54438a1881c4cda6851c1691398520602c1bac069b0355c701da1ca0c54588b2",
+    "requiere_cambio_password": false,
+    "materias": [
+      "Contabilidad",
+      "Tecnologia"
+    ],
+    "niveles": [
+      "Diversificado – Bachillerato",
+      "Diversificado – Magisterio",
+      "Básico"
+    ],
+    "grados": [
+      "Cuarto Magisterio – Sección A"
+    ],
+    "clases": [
+      {
+        "nivel": "Diversificado – Magisterio",
+        "grado": "Cuarto Magisterio – Sección A",
+        "materia": "Contabilidad",
+        "id": "6f4c62df4d4ba220",
+        "docente_id": "f8ce3b51a980",
+        "docente": "Dereck Yahir Pop Pub"
+      },
+      {
+        "nivel": "Diversificado – Magisterio",
+        "grado": "Cuarto Magisterio – Sección A",
+        "materia": "Tecnologia",
+        "id": "1165608813b57f70",
+        "docente_id": "f8ce3b51a980",
+        "docente": "Dereck Yahir Pop Pub"
+      }
+    ]
+  },
+  {
+    "id": "be06d55d455b",
+    "nombre": "Fernando Lopez",
+    "usuario": "lopez",
+    "password_hash": "pbkdf2$210000$23fb2028b6ca05ce2255576662d230a9$845128172ea3955270bc8322d546a1fd6018450a6b482a34142f030995d052a9",
+    "requiere_cambio_password": false,
+    "materias": [
+      "Ciencias Sociales",
+      "Lengua y Literatura",
+      "Matematicas"
+    ],
+    "niveles": [
+      "Diversificado – Magisterio",
+      "Diversificado – Bachillerato",
+      "Primaria"
+    ],
+    "grados": [
+      "Cuarto Bachillerato – Sección A",
+      "Cuarto Magisterio – Sección B",
+      "Primero – Sección A"
+    ],
+    "clases": [
+      {
+        "nivel": "Diversificado – Bachillerato",
+        "grado": "Cuarto Bachillerato – Sección A",
+        "materia": "Matematicas",
+        "id": "f9911915f0150e77",
+        "docente_id": "be06d55d455b",
+        "docente": "Fernando Lopez"
+      },
+      {
+        "nivel": "Diversificado – Bachillerato",
+        "grado": "Cuarto Bachillerato – Sección A",
+        "materia": "Ciencias Sociales",
+        "id": "2cacc132a29ab027",
+        "docente_id": "be06d55d455b",
+        "docente": "Fernando Lopez"
+      },
+      {
+        "nivel": "Diversificado – Magisterio",
+        "grado": "Cuarto Magisterio – Sección B",
+        "materia": "Lengua y Literatura",
+        "id": "4c8da580497f3fed",
+        "docente_id": "be06d55d455b",
+        "docente": "Fernando Lopez"
+      },
+      {
+        "nivel": "Primaria",
+        "grado": "Primero – Sección A",
+        "materia": "Matematicas",
+        "id": "1b93c1a24ffa581d",
+        "docente_id": "be06d55d455b",
+        "docente": "Fernando Lopez"
+      }
+    ]
+  }
+]

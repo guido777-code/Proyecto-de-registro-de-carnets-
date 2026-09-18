@@ -1,1 +1,12 @@
-{"nombres": "Mahonry Julian", "apellidos": "Chocooj Espinoza ", "dpi": "", "fecha_nacimiento": "2010-04-14", "codigo": "EST-20260831104436", "grado": "Cuarto Bachillerato"}
+{
+  "nombres": "Mahonry Julian",
+  "apellidos": "Chocooj Espinoza",
+  "dpi": "No aplica",
+  "fecha_nacimiento": "2010-04-14",
+  "codigo": "EST-20260831104436",
+  "grado": "Cuarto Bachillerato",
+  "nivel": "Diversificado – Magisterio",
+  "docente": "No asignado",
+  "materia": "No asignada",
+  "foto": "EST-20260831104436_foto.jpg"
+}

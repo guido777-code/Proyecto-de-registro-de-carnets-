@@ -1,0 +1,30 @@
+{
+  "nombres": "guido coy",
+  "apellidos": "pinto coy",
+  "dpi": "No aplica",
+  "fecha_nacimiento": "2017-09-02",
+  "codigo": "YGUTPX4",
+  "grado": "Cuarto Magisterio – Sección A",
+  "nivel": "Diversificado – Magisterio",
+  "docente": "Dereck Yahir Pop Pub",
+  "materia": "Contabilidad",
+  "clases": [
+    {
+      "id": "6f4c62df4d4ba220",
+      "docente_id": "f8ce3b51a980",
+      "docente": "Dereck Yahir Pop Pub",
+      "nivel": "Diversificado – Magisterio",
+      "grado": "Cuarto Magisterio – Sección A",
+      "materia": "Contabilidad"
+    },
+    {
+      "id": "1165608813b57f70",
+      "docente_id": "f8ce3b51a980",
+      "docente": "Dereck Yahir Pop Pub",
+      "nivel": "Diversificado – Magisterio",
+      "grado": "Cuarto Magisterio – Sección A",
+      "materia": "Tecnologia"
+    }
+  ],
+  "foto": "YGUTPX4_foto.jpg"
+}
