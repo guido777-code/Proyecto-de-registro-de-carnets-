@@ -114,7 +114,7 @@ GRADOS_SECCIONES_POR_NIVEL = {
     ],
 }
 
-MAX_CLASES_DOCENTE = 12
+# Las clases de cada docente ya no tienen un máximo fijo.\n# El formulario permite agregarlas dinámicamente con un botón.
 
 NOMBRE_COLEGIO_LINEA1 = "COLEGIO MIXTO EVANGÉLICO"
 NOMBRE_COLEGIO_LINEA2 = "NAZARENO"
@@ -2179,23 +2179,41 @@ def pantalla_registro():
             normalizar_texto(c.get("docente", ""))
             for c in clases_nivel_disponibles if c.get("docente")
         })
+
+        # Inicializar siempre estas variables antes de los condicionales.
+        # Esto evita UnboundLocalError cuando todavía no se ha seleccionado
+        # un nivel educativo.
+        docente_seleccionado = "— Seleccione un docente —"
+        clases_para_mostrar = []
+
         if nivel_seleccionado == "Seleccione el nivel":
             st.info("Seleccione primero el nivel educativo para mostrar sus docentes y clases.")
         elif docentes_nivel:
-            st.selectbox(
-                "👩‍🏫 Docente(s) registrado(s) en este nivel",
-                docentes_nivel,
+            docente_seleccionado = st.selectbox(
+                "👩‍🏫 Docente registrado",
+                ["— Seleccione un docente —"] + docentes_nivel,
                 index=0,
-                disabled=True,
                 key="docente_segun_nivel"
             )
-            if len(docentes_nivel) > 1:
-                st.caption("Docentes disponibles en el nivel: " + ", ".join(docentes_nivel))
+
+            if docente_seleccionado == "— Seleccione un docente —":
+                clases_para_mostrar = []
+                st.info("Seleccione un docente para mostrar sus clases.")
+            else:
+                clases_para_mostrar = [
+                    c for c in clases_nivel_disponibles
+                    if normalizar_texto(c.get("docente", "")).casefold()
+                    == normalizar_texto(docente_seleccionado).casefold()
+                ]
+                if not clases_para_mostrar:
+                    st.warning("El docente seleccionado no tiene clases asignadas en este nivel.")
         else:
+            docente_seleccionado = "— Seleccione un docente —"
+            clases_para_mostrar = []
             st.warning("No hay docentes registrados en este nivel educativo.")
 
         opciones = {"Sin asignación por ahora": None}
-        for clase in clases_nivel_disponibles:
+        for clase in clases_para_mostrar:
             opciones[etiqueta_clase(clase)] = clase
 
         seleccionadas = st.multiselect(
@@ -2301,35 +2319,100 @@ def construir_clases_desde_filas(filas):
 
 
 def render_filas_clases_docente(prefix, clases_iniciales=None):
+    """
+    Editor de clases sin límite fijo de filas.
+    El usuario puede agregar tantas clases como necesite mediante el botón
+    "Agregar otra clase". Las filas se conservan entre reruns de Streamlit.
+    """
     clases_iniciales = clases_iniciales or []
+    cantidad_key = f"{prefix}_cantidad_filas"
+
+    if cantidad_key not in st.session_state:
+        st.session_state[cantidad_key] = max(1, len(clases_iniciales))
+
     filas = []
-    for i in range(MAX_CLASES_DOCENTE):
+
+    for i in range(st.session_state[cantidad_key]):
         actual = clases_iniciales[i] if i < len(clases_iniciales) else {}
-        nivel_actual = actual.get("nivel", "")
+
+        nivel_key = f"{prefix}_nivel_{i}"
+        grado_key = f"{prefix}_grado_{i}"
+        materia_key = f"{prefix}_materia_{i}"
+
+        # Inicializar valores solo la primera vez para no sobrescribir
+        # lo que el usuario ya escribió después de un rerun.
+        if nivel_key not in st.session_state:
+            nivel_inicial = actual.get("nivel", "")
+            st.session_state[nivel_key] = (
+                nivel_inicial if nivel_inicial in NIVELES_EDUCATIVOS
+                else "— Sin clase —"
+            )
+
+        nivel_actual = st.session_state[nivel_key]
         nivel_op = ["— Sin clase —"] + NIVELES_EDUCATIVOS
-        if nivel_actual not in NIVELES_EDUCATIVOS:
+        if nivel_actual not in nivel_op:
             nivel_actual = "— Sin clase —"
+
         c1, c2, c3 = st.columns([2.1, 3.2, 3.2])
+
         with c1:
-            nivel = st.selectbox("Nivel" if i == 0 else "", nivel_op,
-                                 index=nivel_op.index(nivel_actual), key=f"{prefix}_nivel_{i}")
+            nivel = st.selectbox(
+                "Nivel" if i == 0 else "",
+                nivel_op,
+                index=nivel_op.index(nivel_actual),
+                key=nivel_key
+            )
+
         grados = GRADOS_SECCIONES_POR_NIVEL.get(nivel, [])
         grado_actual = actual.get("grado", "")
+        if grado_key not in st.session_state:
+            st.session_state[grado_key] = grado_actual
+
         grado_op = ["— Seleccione grado/sección —"] + grados
-        if grado_actual and grado_actual not in grados:
-            grado_op.append(grado_actual)
-        if nivel == "— Sin clase —":
-            grado_actual_sel = "— Seleccione grado/sección —"
-        else:
-            grado_actual_sel = grado_actual if grado_actual in grado_op else "— Seleccione grado/sección —"
+        grado_actual_sel = (
+            st.session_state.get(grado_key, "")
+            if st.session_state.get(grado_key, "") in grado_op
+            else "— Seleccione grado/sección —"
+        )
+
         with c2:
-            grado = st.selectbox("Grado / Sección" if i == 0 else "", grado_op,
-                                 index=grado_op.index(grado_actual_sel), key=f"{prefix}_grado_{i}")
+            grado = st.selectbox(
+                "Grado / Sección" if i == 0 else "",
+                grado_op,
+                index=grado_op.index(grado_actual_sel),
+                key=grado_key
+            )
+
+        if materia_key not in st.session_state:
+            st.session_state[materia_key] = actual.get("materia", "")
+
         with c3:
-            materia = st.text_input("Materia" if i == 0 else "", value=actual.get("materia", ""),
-                                    placeholder="Ej. Matemáticas", key=f"{prefix}_materia_{i}")
-        if nivel != "— Sin clase —" and grado != "— Seleccione grado/sección —" and normalizar_texto(materia):
+            materia = st.text_input(
+                "Materia" if i == 0 else "",
+                placeholder="Ej. Matemáticas",
+                key=materia_key
+            )
+
+        if (
+            nivel != "— Sin clase —"
+            and grado != "— Seleccione grado/sección —"
+            and normalizar_texto(materia)
+        ):
             filas.append((nivel, grado, materia))
+
+    st.caption(
+        f"📚 Clases configuradas: {len(filas)} · "
+        "No existe un límite máximo de clases."
+    )
+
+    if st.button(
+        "➕ Agregar otra clase",
+        use_container_width=True,
+        key=f"{prefix}_agregar_clase"
+    ):
+        st.session_state[cantidad_key] += 1
+        st.rerun()
+
     return construir_clases_desde_filas(filas)
 
 
@@ -2390,7 +2473,7 @@ def panel_docentes():
             niveles_docente=st.multiselect("Nivel(es) educativo(s) *",NIVELES_EDUCATIVOS,key="nuevo_doc_niveles")
         st.markdown("**Clases asignadas**")
         clases=render_filas_clases_docente("nuevo_doc")
-        st.caption("Seleccione el nivel, luego el grado/sección del catálogo y escriba la materia. Puede registrar hasta 12 clases por docente.")
+        st.caption("Seleccione el nivel, luego el grado/sección del catálogo y escriba la materia. Use «Agregar otra clase» para añadir tantas clases como necesite.")
         guardar=st.button("🔐 Crear cuenta docente",type="primary",use_container_width=True,key="guardar_nuevo_doc")
         if guardar:
             nombre_limpio=normalizar_texto(nombre_docente); usuario_limpio=normalizar_texto(usuario_docente).lower()

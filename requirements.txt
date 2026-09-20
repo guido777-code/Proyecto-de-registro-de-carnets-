@@ -3,3 +3,4 @@ qrcode[pil]
 pandas
 opencv-python-headless
 numpy
+openpyxl

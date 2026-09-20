@@ -1,0 +1,38 @@
+{
+  "nombres": "paaceca",
+  "apellidos": "fopsvkso",
+  "dpi": "No aplica",
+  "fecha_nacimiento": "2026-09-02",
+  "codigo": "U0Q9ZKU",
+  "grado": "Cuarto Bachillerato – Sección A",
+  "nivel": "Diversificado – Bachillerato",
+  "docente": "Fernando Lopez",
+  "materia": "Ciencias Sociales",
+  "clases": [
+    {
+      "id": "2cacc132a29ab027",
+      "docente_id": "be06d55d455b",
+      "docente": "Fernando Lopez",
+      "nivel": "Diversificado – Bachillerato",
+      "grado": "Cuarto Bachillerato – Sección A",
+      "materia": "Ciencias Sociales"
+    },
+    {
+      "id": "f9911915f0150e77",
+      "docente_id": "be06d55d455b",
+      "docente": "Fernando Lopez",
+      "nivel": "Diversificado – Bachillerato",
+      "grado": "Cuarto Bachillerato – Sección A",
+      "materia": "Matematicas"
+    },
+    {
+      "id": "bb7a2105faac4e23",
+      "docente_id": "0f883b179880",
+      "docente": "Juan Pablo",
+      "nivel": "Diversificado – Bachillerato",
+      "grado": "Cuarto Bachillerato – Sección A",
+      "materia": "Fisica"
+    }
+  ],
+  "foto": "U0Q9ZKU_foto.jpg"
+}

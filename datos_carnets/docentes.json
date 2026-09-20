@@ -91,5 +91,43 @@
         "docente": "Fernando Lopez"
       }
     ]
+  },
+  {
+    "id": "0f883b179880",
+    "nombre": "Juan Pablo",
+    "usuario": "pablo",
+    "password_hash": "pbkdf2$210000$3fe76e686096cb8a3226e2f2d1caccfa$feda6d05f501fb7df4db8f24cd4fa4364955eb445a6f2fd5ced5487337423b9e",
+    "requiere_cambio_password": false,
+    "materias": [
+      "Fisica",
+      "Matematicas"
+    ],
+    "niveles": [
+      "Diversificado – Magisterio",
+      "Diversificado – Bachillerato",
+      "Básico"
+    ],
+    "grados": [
+      "Cuarto Bachillerato – Sección A",
+      "Cuarto Magisterio – Sección A"
+    ],
+    "clases": [
+      {
+        "nivel": "Diversificado – Magisterio",
+        "grado": "Cuarto Magisterio – Sección A",
+        "materia": "Matematicas",
+        "id": "1736242480e5db25",
+        "docente_id": "0f883b179880",
+        "docente": "Juan Pablo"
+      },
+      {
+        "nivel": "Diversificado – Bachillerato",
+        "grado": "Cuarto Bachillerato – Sección A",
+        "materia": "Fisica",
+        "id": "bb7a2105faac4e23",
+        "docente_id": "0f883b179880",
+        "docente": "Juan Pablo"
+      }
+    ]
   }
 ]
